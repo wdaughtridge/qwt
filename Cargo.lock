@@ -186,7 +186,7 @@ dependencies = [
  "bitflags 2.9.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools",
  "lazy_static",
  "lazycell",
  "log",
@@ -209,7 +209,7 @@ dependencies = [
  "bitflags 2.9.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "regex",
@@ -259,7 +259,8 @@ dependencies = [
 [[package]]
 name = "buffer-pool"
 version = "0.1.0"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a735dacb3d6e895d2537d263a01a09c3e48838e03818a8beed7a41249dffe09f"
 dependencies = [
  "crossbeam",
 ]
@@ -376,6 +377,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
+name = "critical-section"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
+
+[[package]]
 name = "crossbeam"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -470,7 +477,8 @@ dependencies = [
 [[package]]
 name = "datagram-socket"
 version = "0.2.0"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7c6a16a609dbaa95984211e1e139e1fe207eb2e1081c186ae00975b0015c827"
 dependencies = [
  "buffer-pool",
  "futures-util",
@@ -1221,15 +1229,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1514,15 +1513,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "109983a091271ee8916076731ba5fdc9ee22fea871bc7c6ceab9bfd423eb1d99"
 
 [[package]]
-name = "octets"
-version = "0.3.0"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
-
-[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+dependencies = [
+ "critical-section",
+ "portable-atomic",
+]
 
 [[package]]
 name = "openssl-macros"
@@ -1789,7 +1787,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn 2.0.100",
@@ -1798,7 +1796,8 @@ dependencies = [
 [[package]]
 name = "qlog"
 version = "0.15.2"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f15b83c59e6b945f2261c95a1dd9faf239187f32ff0a96af1d1d28c4557f919"
 dependencies = [
  "serde",
  "serde_json",
@@ -1824,7 +1823,8 @@ dependencies = [
 [[package]]
 name = "quiche"
 version = "0.24.1"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "216589935293524d922007922d23d30f300a7696d170b03223820d3343e3a124"
 dependencies = [
  "boring",
  "cmake",
@@ -1836,7 +1836,7 @@ dependencies = [
  "libc",
  "libm",
  "log",
- "octets 0.3.0 (git+https://github.com/wdaughtridge/quiche.git)",
+ "octets",
  "qlog",
  "slab",
  "smallvec",
@@ -1859,7 +1859,7 @@ dependencies = [
  "axum",
  "futures",
  "hex",
- "octets 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "octets",
  "quiche",
  "ring",
  "rustls",
@@ -2353,8 +2353,10 @@ checksum = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
 [[package]]
 name = "task-killswitch"
 version = "0.1.0"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b100db70d1030a60a3b8c7e4cffd06e883975bb4fa4c8a28d1110f5a19cdb443"
 dependencies = [
+ "once_cell",
  "parking_lot",
  "tokio",
 ]
@@ -2483,7 +2485,8 @@ dependencies = [
 [[package]]
 name = "tokio-quiche"
 version = "0.4.2"
-source = "git+https://github.com/wdaughtridge/quiche.git#cdec1f11d8d8c1f5b5ee0cd3361870c22a7fbf32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3defdd30951fe9939232f02b00aaeda42ffde66fc8d3c210b4342f21c4bd2c7"
 dependencies = [
  "boring",
  "buffer-pool",
@@ -2496,7 +2499,7 @@ dependencies = [
  "libc",
  "log",
  "nix",
- "octets 0.3.0 (git+https://github.com/wdaughtridge/quiche.git)",
+ "octets",
  "pin-project",
  "quiche",
  "serde",
