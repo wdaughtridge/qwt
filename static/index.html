@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <title>WebTransport over HTTP/3 Echo client</title>
+  <meta charset="utf-8">
+  <body>
+    <h1>WebTransport over HTTP/3 Echo client</h1>
+    <script type="module">
+      const webtransport = new WebTransport("https://127.0.0.1:4433");
+      await webtransport.ready;
+      console.log(webtransport);
+      const bidi = await webtransport.createBidirectionalStream();
+      const writer = bidi.writable.getWriter();
+      const data1 = new Uint8Array([65, 66, 67]);
+      writer.write(data1);
+    </script>
+  </body>
+</html>

@@ -1,3 +1,4 @@
+use axum::response::Html;
 use axum::{Router, routing::get};
 use futures::StreamExt as _;
 use quiche::h3::Header;
@@ -14,6 +15,10 @@ use tokio_quiche::metrics::DefaultMetrics;
 use tokio_quiche::quic::SimpleConnectionIdGenerator;
 use tokio_quiche::settings::QuicSettings;
 use tracing::*;
+
+async fn index() -> Html<&'static str> {
+    include_str!("../static/index.html").into()
+}
 
 async fn fingerprint() -> String {
     let chain = fs::File::open("./certs/cert.crt").expect("failed to open cert file");
@@ -46,6 +51,7 @@ struct WebTransport {
     h3conn: Option<h3::Connection>,
     data_buf: [u8; 4096],
     established: bool,
+    pending_connect: Option<u64>,
 }
 
 impl WebTransport {
@@ -54,6 +60,7 @@ impl WebTransport {
             data_buf: [0; 4096],
             h3conn: None,
             established: false,
+            pending_connect: None,
         }
     }
 
@@ -83,12 +90,18 @@ impl WebTransport {
 
     fn process_h3_reads(&mut self, qconn: &mut Connection) {
         loop {
+            if self.established {
+                panic!("WebTransport shouldn't be established in this loop!");
+            }
+
             match self.h3conn.as_mut().unwrap().poll(qconn) {
                 Ok((stream_id, event)) => {
-                    debug!("Got event {event:?} on stream {stream_id}");
+                    debug!("got event {event:?} on stream {stream_id}");
                     self.process_h3_event(qconn, event, stream_id);
                 }
+
                 Err(h3::Error::Done) => break,
+
                 Err(err) => panic!("Connection closed due to h3 protocol error {err:?}"),
             };
         }
@@ -98,19 +111,11 @@ impl WebTransport {
         match event {
             h3::Event::Headers { list, .. } => {
                 // TODO: check client's headers
-                let _list = list;
-
-                // TODO: handle errors here, e.g., non-2XX responses
-                let headers_buf = [Header::new(":status".as_bytes(), "200".as_bytes())].to_vec();
-                self.h3conn
-                    .as_mut()
-                    .unwrap()
-                    .send_response(qconn, stream_id, &headers_buf, true)
-                    .expect("sending HTTP/3 response");
-
-                // We've got liftoff 🚀
-                self.established = true;
+                // handle errors here, e.g., non-2XX responses
+                debug!("{} got HEADERS {:?}", qconn.trace_id(), list);
+                self.pending_connect = Some(stream_id);
             }
+
             h3::Event::Data => loop {
                 match self.h3conn.as_mut().unwrap().recv_body(
                     qconn,
@@ -122,7 +127,9 @@ impl WebTransport {
                         qconn.trace_id(),
                         stream_id,
                     ),
+
                     Err(h3::Error::Done) => break,
+
                     Err(_) => error!(
                         "{} error reading data from stream {}",
                         qconn.trace_id(),
@@ -130,8 +137,9 @@ impl WebTransport {
                     ),
                 }
             },
+
             e => {
-                warn!("unhandled h3 event {e:?}");
+                panic!("unhandled h3 event {e:?}");
             }
         }
     }
@@ -154,7 +162,9 @@ impl ApplicationOverQuic for WebTransport {
         let mut config = h3::Config::new().unwrap();
         config.enable_extended_connect(true);
         config
-            .set_additional_settings([(SETTINGS_WEBTRANSPORT_MAX_SESSIONS, 1024)].to_vec())
+            .set_additional_settings(
+                [(0x2b603742, 1), (SETTINGS_WEBTRANSPORT_MAX_SESSIONS, 1024)].to_vec(),
+            )
             .unwrap();
 
         let h3conn = h3::Connection::with_transport(qconn, &config).unwrap();
@@ -197,8 +207,24 @@ impl ApplicationOverQuic for WebTransport {
 
     fn process_writes(
         &mut self,
-        _qconn: &mut tokio_quiche::quic::QuicheConnection,
+        qconn: &mut tokio_quiche::quic::QuicheConnection,
     ) -> tokio_quiche::QuicResult<()> {
+        if let Some(stream_id) = self.pending_connect {
+            let headers_buf = [Header::new(":status".as_bytes(), "200".as_bytes())].to_vec();
+            self.h3conn
+                .as_mut()
+                .unwrap()
+                .send_response(qconn, stream_id, &headers_buf, true)
+                .expect("sending HTTP/3 response");
+
+            // We've got liftoff 🚀
+            // This will eject us out of HTTP/3 logic and essentially
+            // re-expose quic.
+            self.established = true;
+            self.pending_connect = None;
+            debug!("{} established WebTranport session", qconn.trace_id());
+        }
+
         Ok(())
     }
 }
@@ -211,7 +237,9 @@ async fn main() {
 
     // HTTP/1 for the fingerprint route
     // TODO: remove this if we have proper certs
-    let app = Router::new().route("/fingerprint", get(fingerprint));
+    let app = Router::new()
+        .route("/", get(index))
+        .route("/fingerprint", get(fingerprint));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
