@@ -29,88 +29,61 @@ pub struct QwtClient {
     conn: Connection,
 }
 
-pub struct QwtBidirectional {
-    bidi: BidirectionalStream,
+pub struct QwtStream {
+    rx: Option<ReceiveStream>,
+    tx: Option<SendStream>,
     sess: Option<u64>,
     buf: Vec<u8>,
 }
 
-impl QwtBidirectional {
-    pub fn new(bidi: BidirectionalStream) -> Self {
-        Self {
-            bidi,
-            sess: None,
-            buf: Vec::with_capacity(1350),
-        }
-    }
-
-    pub async fn sess(&mut self) -> Result<(), Box<dyn Error>> {
-        let data = self.bidi.receive().await?.expect("receive");
-        let mut data = Octets::with_slice(&data[..]);
-
-        if self.sess.is_none() {
-            self.sess = Some(data.get_varint()?);
-
-            debug!("WebTransport session {}", self.sess.unwrap());
-        } else {
-            panic!("Can't reset session ID");
-        }
-
-        debug!("Initial WebTransport bidirectional data {:?}", data);
-
-        self.buf.extend_from_slice(&data.buf()[data.off()..]);
-
-        Ok(())
-    }
-
-    pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        self.sess().await?;
-
-        while let Ok(Some(data)) = self.bidi.receive().await {
-            debug!(
-                "Got WebTransport {} bytes of bidirectional data",
-                data.len()
-            );
-
-            let _data = self.buf.iter().chain(data.iter());
-
-            // for byte in data {
-            //     debug!("Got byte {byte}");
-            // }
-        }
-
-        Ok(())
+impl From<BidirectionalStream> for QwtStream {
+    fn from(bidi: BidirectionalStream) -> Self {
+        let (rx, tx) = bidi.split();
+        Self::new(Some(tx), Some(rx))
     }
 }
 
-pub struct QwtReceive {
-    rx: ReceiveStream,
-    sess: Option<u64>,
-    buf: Vec<u8>,
+impl From<SendStream> for QwtStream {
+    fn from(tx: SendStream) -> Self {
+        Self::new(Some(tx), None)
+    }
 }
 
-impl QwtReceive {
-    pub fn new(rx: ReceiveStream) -> Self {
+impl From<ReceiveStream> for QwtStream {
+    fn from(rx: ReceiveStream) -> Self {
+        Self::new(None, Some(rx))
+    }
+}
+
+impl QwtStream {
+    pub fn new(tx: Option<SendStream>, rx: Option<ReceiveStream>) -> Self {
         Self {
             rx,
+            tx,
             sess: None,
             buf: Vec::with_capacity(1350),
         }
     }
 
     pub async fn sess(&mut self) -> Result<(), Box<dyn Error>> {
-        let data = self.rx.receive().await?.expect("receive");
-        let mut data = Octets::with_slice(&data[..]);
+        if let Some(rx) = &mut self.rx {
+            let data = rx.receive().await?.expect("receive");
+            let mut data = Octets::with_slice(&data[..]);
 
-        if self.sess.is_none() {
-            self.sess = Some(data.get_varint()?);
+            if self.sess.is_none() {
+                self.sess = Some(data.get_varint()?);
 
-            debug!("WebTransport session {}", self.sess.unwrap());
+                debug!("WebTransport session {}", self.sess.unwrap());
+            } else {
+                panic!("Can't reset session ID");
+            }
+
+            debug!("Initial WebTransport bidirectional data {:?}", data);
+
+            self.buf.extend_from_slice(&data.buf()[data.off()..]);
         } else {
-            panic!("Can't reset session ID");
+            panic!("No rx on stream");
         }
-
-        self.buf.extend_from_slice(&data.buf()[data.off()..]);
 
         Ok(())
     }
@@ -118,14 +91,17 @@ impl QwtReceive {
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
         self.sess().await?;
 
-        while let Ok(Some(data)) = self.rx.receive().await {
-            debug!("Got WebTransport unidirectional data {:?}", data);
+        if let Some(rx) = &mut self.rx {
+            while let Ok(Some(data)) = rx.receive().await {
+                debug!(
+                    "Got WebTransport {} bytes of bidirectional data",
+                    data.len()
+                );
 
-            let data = self.buf.iter().chain(data.iter());
-
-            for byte in data {
-                debug!("Got byte {byte}");
+                let _data = self.buf.iter().chain(data.iter());
             }
+        } else {
+            panic!("No rx on stream");
         }
 
         Ok(())
@@ -392,7 +368,7 @@ impl QwtClient {
         debug!("WebTransport unidirectional stream");
 
         // Eject to WebTransport unidirectional stream
-        let mut rx = QwtReceive::new(rx);
+        let mut rx: QwtStream = rx.into();
         tokio::spawn(async move {
             rx.start().await.expect("WebTransport bidirectional");
         });
@@ -413,7 +389,7 @@ impl QwtClient {
         debug!("WebTransport bidirectional stream");
 
         // Eject to WebTransport bidirectional stream
-        let mut bidi = QwtBidirectional::new(bidi);
+        let mut bidi: QwtStream = bidi.into();
         tokio::spawn(async move {
             bidi.start().await.expect("WebTransport bidirectional");
         });

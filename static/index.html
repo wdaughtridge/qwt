@@ -11,7 +11,10 @@
       const bidi = await webtransport.createBidirectionalStream();
       const writer = bidi.writable.getWriter();
       const data1 = new Uint8Array([65, 66, 67]);
-      writer.write(data1);
+      while (true) {
+        await writer.write(data1);
+        await new Promise(r => setTimeout(r, 100));
+      }
     </script>
   </body>
 </html>

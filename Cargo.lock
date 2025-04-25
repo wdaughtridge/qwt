@@ -1152,6 +1152,7 @@ dependencies = [
  "pin-project-lite",
  "s2n-codec",
  "subtle",
+ "tracing",
  "zerocopy",
 ]
 
