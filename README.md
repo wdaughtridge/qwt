@@ -14,7 +14,7 @@
                                            /_/                      
 ```
 
-## QuickWebTransport server over HTTP/3
+## QuicWebTransport server over HTTP/3
 
 ### I was originally using Cloudflare Quiche library but switched to Amazon s2n impl.
 I still need to replace quiche QPACK usage with my own impl, but the rest of the HTTP/3 and WebTransport logic is all implemented here.
