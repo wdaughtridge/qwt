@@ -191,7 +191,7 @@ impl QwtClient {
                 // Parse frame type and length of payload
                 let typ = data.get_varint().unwrap();
                 let len = data.get_varint().unwrap();
-                let frm = data.get_bytes(len as usize).unwrap();
+                let mut frm = data.get_bytes(len as usize).unwrap();
 
                 match typ {
                     0x01 => {
@@ -234,6 +234,26 @@ impl QwtClient {
                         bidi.send(out).await.unwrap();
 
                         debug!("Sent {} bytes", len);
+                    }
+
+                    0x00 => {
+                        // DATA Frame {
+                        //   Type (i) = 0x00,
+                        //   Length (i),
+                        //   Data (..),
+                        // }
+                        
+                        let typ = frm.get_varint().unwrap();
+                        match typ {
+                            0x2843 => {
+                                debug!("Got request to close session");
+                                // TODO: shutdown connection!
+                            }
+
+                            _ => {
+                                debug!("Unknown capsule data");
+                            }
+                        }
                     }
 
                     unk => {
